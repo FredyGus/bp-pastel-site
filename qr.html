@@ -25,13 +25,11 @@
   </div>
 
   <script>
-    // ==== TU URL (puedes apuntar a /menu.html si prefieres abrir directo el menú)
     const URL_DESTINO = "https://68e1d33f3b140c01a0f475e4--astounding-faun-015498.netlify.app/";
     document.getElementById('u').textContent = URL_DESTINO;
 
-    const size = 720;                 // tamaño del PNG final
+    const size = 720;                 
     const margin = 2;
-    // QuickChart genera la imagen del QR con CORS habilitado (¡perfecto para canvas!)
     const qrURL =
       "https://quickchart.io/qr?text=" + encodeURIComponent(URL_DESTINO) +
       `&size=${size}&margin=${margin}&ecLevel=H&light=ffffff&dark=202124`;
@@ -39,7 +37,6 @@
     const container = document.getElementById('qr');
     const btn = document.getElementById('save');
 
-    // Cargamos el QR como imagen (con CORS) y luego lo pasamos a canvas para generar el PNG descargable
     const qrImg = new Image();
     qrImg.crossOrigin = 'anonymous';
     qrImg.src = qrURL;
@@ -56,7 +53,6 @@
       ctx.fillRect(0,0,size,size);
       ctx.drawImage(qrImg, 0, 0, size, size);
 
-      // Intentamos poner el logo. Si falla, dejamos el QR sin logo.
       const logo = new Image();
       logo.onload = () => {
         try{
@@ -64,7 +60,6 @@
           const x = (size - L)/2, y = (size - L)/2;
           const r = L/8;
 
-          // marco blanco redondeado
           ctx.save();
           ctx.beginPath();
           ctx.moveTo(x+r,y);
@@ -78,20 +73,16 @@
           ctx.drawImage(logo, x+6, y+6, L-12, L-12);
           ctx.restore();
         }catch(e){
-          // si algo bloquea el canvas, seguimos sin logo
         }finally{
           activateDownload(canvas);
         }
       };
-      // usa tu logo local si existe; si no, coméntalo y se activa igual sin logo
       logo.src = 'assets/logo-bp.png';
 
-      // Si en 600ms el botón no se activó (logo no cargó), activamos sin logo
       setTimeout(()=>{ if(btn.getAttribute('aria-disabled')==='true') activateDownload(canvas); }, 600);
     };
 
     qrImg.onerror = () => {
-      // Fallback extremo: habilitar descarga del QR remoto (algunos navegadores ignorarán download cross-origin)
       container.textContent = 'No se pudo generar el QR. Revisa tu conexión.';
       btn.href = qrURL;
       btn.removeAttribute('aria-disabled');

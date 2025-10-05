@@ -6,64 +6,105 @@
 <title>QR B&P</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" rel="stylesheet">
 <style>
-  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#fafafa;font-family:Poppins,system-ui}
+  :root{ --gradA:#ff99ad; --gradB:#ffd1ff; --text:#202124; }
+  html,body{height:100%}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#fafafa;font-family:Poppins,system-ui;color:var(--text)}
   .card{background:#fff;border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.12);padding:20px 24px;text-align:center}
-  #qr{display:inline-block}
+  #qr{display:inline-block;min-height:20px}
   .btn{margin-top:14px;display:inline-block;padding:10px 16px;border-radius:999px;
-       background:linear-gradient(135deg,#ff99ad,#ffd1ff);color:#fff;text-decoration:none;font-weight:800}
+       background:linear-gradient(135deg,var(--gradA),var(--gradB));color:#fff;text-decoration:none;font-weight:800}
+  .btn[aria-disabled="true"]{opacity:.6;pointer-events:none}
+  .hint{font-size:12px;opacity:.7;margin-top:8px;max-width:720px}
 </style>
 </head>
 <body>
   <div class="card">
     <div id="qr"></div><br>
-    <a id="save" class="btn" href="#">Descargar PNG</a>
+    <a id="save" class="btn" aria-disabled="true" href="#">Descargar PNG</a>
+    <div class="hint">Escanear abre: <span id="u"></span></div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script>
-    const URL_DESTINO = "https://tu-sitio.netlify.app/go"; // ⬅️ pon aquí TU URL
+    // ==== TU URL (puedes apuntar a /menu.html si prefieres abrir directo el menú)
+    const URL_DESTINO = "https://68e1d33f3b140c01a0f475e4--astounding-faun-015498.netlify.app/";
+    document.getElementById('u').textContent = URL_DESTINO;
 
-    const size = 720;
-    const canvas = document.createElement('canvas');
-    QRCode.toCanvas(canvas, URL_DESTINO, {
-      width: size,
-      margin: 2,
-      errorCorrectionLevel: 'H',
-      color: { dark: '#202124', light: '#ffffff' }
-    }).then(() => {
-      document.getElementById('qr').appendChild(canvas);
+    const size = 720;                 // tamaño del PNG final
+    const margin = 2;
+    // QuickChart genera la imagen del QR con CORS habilitado (¡perfecto para canvas!)
+    const qrURL =
+      "https://quickchart.io/qr?text=" + encodeURIComponent(URL_DESTINO) +
+      `&size=${size}&margin=${margin}&ecLevel=H&light=ffffff&dark=202124`;
 
-      // Logo al centro con marco blanco
+    const container = document.getElementById('qr');
+    const btn = document.getElementById('save');
+
+    // Cargamos el QR como imagen (con CORS) y luego lo pasamos a canvas para generar el PNG descargable
+    const qrImg = new Image();
+    qrImg.crossOrigin = 'anonymous';
+    qrImg.src = qrURL;
+
+    qrImg.onload = () => {
+      container.innerHTML = '';
+      container.appendChild(qrImg);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0,0,size,size);
+      ctx.drawImage(qrImg, 0, 0, size, size);
+
+      // Intentamos poner el logo. Si falla, dejamos el QR sin logo.
       const logo = new Image();
-      logo.src = 'assets/logo-bp.png';
       logo.onload = () => {
-        const ctx = canvas.getContext('2d');
-        const L = size * 0.22;
-        const x = (size - L)/2, y = (size - L)/2;
+        try{
+          const L = size * 0.22;
+          const x = (size - L)/2, y = (size - L)/2;
+          const r = L/8;
 
-        ctx.save();
-        const r = L/8;
-        ctx.beginPath();
-        ctx.moveTo(x+r,y);
-        ctx.arcTo(x+L,y,x+L,y+L,r);
-        ctx.arcTo(x+L,y+L,x,y+L,r);
-        ctx.arcTo(x,y+L,x,y,r);
-        ctx.arcTo(x,y,x+L,y,r);
-        ctx.closePath();
-        ctx.fillStyle = '#fff';
-        ctx.fill();
-        ctx.drawImage(logo, x+6, y+6, L-12, L-12);
-        ctx.restore();
+          // marco blanco redondeado
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(x+r,y);
+          ctx.arcTo(x+L,y,x+L,y+L,r);
+          ctx.arcTo(x+L,y+L,x,y+L,r);
+          ctx.arcTo(x,y+L,x,y,r);
+          ctx.arcTo(x,y,x+L,y,r);
+          ctx.closePath();
+          ctx.fillStyle = '#fff';
+          ctx.fill();
+          ctx.drawImage(logo, x+6, y+6, L-12, L-12);
+          ctx.restore();
+        }catch(e){
+          // si algo bloquea el canvas, seguimos sin logo
+        }finally{
+          activateDownload(canvas);
+        }
       };
-    });
+      // usa tu logo local si existe; si no, coméntalo y se activa igual sin logo
+      logo.src = 'assets/logo-bp.png';
 
-    document.getElementById('save').addEventListener('click', e => {
-      e.preventDefault();
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = 'bp-qr.png';
-      a.click();
-    });
+      // Si en 600ms el botón no se activó (logo no cargó), activamos sin logo
+      setTimeout(()=>{ if(btn.getAttribute('aria-disabled')==='true') activateDownload(canvas); }, 600);
+    };
+
+    qrImg.onerror = () => {
+      // Fallback extremo: habilitar descarga del QR remoto (algunos navegadores ignorarán download cross-origin)
+      container.textContent = 'No se pudo generar el QR. Revisa tu conexión.';
+      btn.href = qrURL;
+      btn.removeAttribute('aria-disabled');
+    };
+
+    function activateDownload(cnv){
+      try{
+        btn.href = cnv.toDataURL('image/png');
+        btn.download = 'bp-qr.png';
+      }finally{
+        btn.removeAttribute('aria-disabled');
+      }
+    }
   </script>
 </body>
 </html>
